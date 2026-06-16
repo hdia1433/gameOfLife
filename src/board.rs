@@ -1,4 +1,5 @@
-use macroquad::prelude::{draw_rectangle, draw_line, WHITE, RED};
+use macroquad::prelude::{draw_rectangle, draw_line, is_mouse_button_released, MouseButton, mouse_position, is_key_released, KeyCode, WHITE, RED, GREEN};
+use std::cmp::min;
 
 struct Vector
 {
@@ -25,7 +26,11 @@ impl Default for Vector
 pub struct Board
 {
     board: [[bool; 25]; 25],
-    size: Vector
+    boardBuf: [[bool; 25]; 25],
+    size: Vector,
+    paused: bool,
+    next: bool,
+    coolTime: i32
 }
 
 impl Board
@@ -37,7 +42,7 @@ impl Board
         let blockWidth:f32 = width / 25f32;
         let blockHeight:f32 = height / 25f32;
 
-        Self {board, size: Vector::new(blockWidth, blockHeight)}
+        Self {board, boardBuf: board, size: Vector::new(blockWidth, blockHeight), paused: true, next: false, coolTime: 0}
     }
 
     pub fn draw(&self)
@@ -57,9 +62,104 @@ impl Board
             {
                 if self.board[row][col]
                 {
-                    draw_rectangle(self.size.width * col as f32, self.size.width * row as f32, self.size.width, self.size.height, RED);
+                    let colour = if self.paused
+                    {
+                        RED
+                    }
+                    else
+                    {
+                        GREEN
+                    };
+
+                    draw_rectangle(self.size.width * col as f32, self.size.width * row as f32, self.size.width, self.size.height, colour);
                 }
             }
         }
+    }
+
+    pub fn input(&mut self)
+    {
+        if is_mouse_button_released(MouseButton::Left)
+        {
+            let (mouseX, mouseY) = mouse_position();
+
+            let x = (mouseX / self.size.width) as usize;
+            let y = (mouseY / self.size.height) as usize;
+
+            self.board[y][x] = !self.board[y][x];
+
+            if !self.paused
+            {
+                self.paused = true;
+            }
+        }
+
+        if is_key_released(KeyCode::P)
+        {
+            self.paused = !self.paused;
+        }
+
+        if is_key_released(KeyCode::N)
+        {
+            self.next = true
+        }
+    }
+
+    pub fn update(&mut self)
+    {
+        if self.next
+        {
+            self.next = false;
+        }
+        else if self.paused
+        {
+            return;
+        }
+        else if self.coolTime > 0
+        {
+            self.coolTime -= 1;
+            return;
+        }
+
+        for row in 0..=self.board.len() -1
+        {
+            for col in 0..=self.board[row].len() - 1
+            {
+                let mut aliveNum:i32 = 0;
+
+                for rowAdd in row.saturating_sub(1)..=min(row + 1, self.board.len() - 1)
+                {
+                    for colAdd in col.saturating_sub(1)..=min(col + 1, self.board[rowAdd].len() - 1)
+                    {
+                        if row == rowAdd && col == colAdd
+                        {
+                            continue;
+                        }
+                        else if self.board[rowAdd][colAdd]
+                        {
+                            aliveNum += 1;
+                        }
+                    }
+                }
+
+                if self.board[row][col]
+                {
+                    self.boardBuf[row][col] = match aliveNum
+                    {
+                        0 | 1 => false,
+                        4.. => false,
+                        2 | 3 => true,
+                        _ => unreachable!()
+                    };
+                }
+                else
+                {
+                    self.boardBuf[row][col] = matches!(aliveNum, 3);
+                }
+            }
+        }
+
+        self.coolTime = 10;
+        self.board = self.boardBuf;
     }
 }

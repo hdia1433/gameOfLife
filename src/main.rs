@@ -2,20 +2,31 @@
 
 mod board;
 
-use macroquad::prelude::{BLACK, clear_background, next_frame, screen_width, screen_height, request_new_screen_size};
+use macroquad::prelude::{BLACK, Conf, clear_background, next_frame};
 use board::Board;
 
-#[macroquad::main("Game of Life")]
+fn windowConf() -> Conf
+{
+    Conf{
+        window_title: "Game of life".to_string(),
+        window_width: 800,
+        window_height: 800,
+        window_resizable: false,
+        ..Default::default()
+    }
+}
+
+#[macroquad::main(windowConf)]
 async fn main() 
 {
-    request_new_screen_size(800f32, 800f32);
-
-    let board = Board::new(800f32, 800f32);
+    let mut board = Board::new(800f32, 800f32);
 
     loop
     {
         clear_background(BLACK);
-
+        
+        board.input();
+        board.update();
         board.draw();
 
         next_frame().await;
